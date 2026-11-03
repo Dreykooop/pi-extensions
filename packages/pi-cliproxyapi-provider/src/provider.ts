@@ -227,7 +227,17 @@ function positiveLimit(value: number | undefined): number | undefined {
  * A model CPA reports under a non-Anthropic owner (Antigravity, an
  * OpenAI-compatible upstream) is translated away from the Messages shape,
  * where a system-role message cannot survive, so it gets none of them.
+ * A `devin/` Claude route gets no per-turn effort: CPA's Devin translator
+ * picks the effort variant (`claude-opus-5-5-high`) from the top-level effort
+ * only and drops the per-turn directives, while pi pins that top-level effort
+ * to a fixed placeholder. Devin chooses the model per request, so a top-level
+ * effort already changes per turn. Its system and tool-change updates survive
+ * as Devin input and stay on.
  */
+function isDevinRoute(id: string): boolean {
+  return id.toLowerCase().startsWith("devin/");
+}
+
 function compatFromWire(
   wire: ModelWire,
   cpaModel: CpaModel,
@@ -237,7 +247,9 @@ function compatFromWire(
   if (cpaModel.owned_by !== undefined && cpaModel.owned_by !== "anthropic") return undefined;
   const profile = wire.profile;
   const compat = {
-    ...(features.perTurnEffort && profile.supportsMidConvoEffort ? { supportsMidConvoEffort: true } : {}),
+    ...(features.perTurnEffort && profile.supportsMidConvoEffort && !isDevinRoute(cpaModel.id)
+      ? { supportsMidConvoEffort: true }
+      : {}),
     ...(features.midConversationUpdates && profile.supportsMidConvoSystemMessages
       ? {
         supportsMidConvoSystemMessages: true,

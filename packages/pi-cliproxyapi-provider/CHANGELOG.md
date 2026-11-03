@@ -1,5 +1,11 @@
 # @hank-warren/pi-cliproxyapi-provider
 
+## 0.5.1
+
+### Patch Changes
+
+- Stop publishing per-turn effort for `devin/` Claude routes. Pi pins the top-level effort to a fixed placeholder (`high` before pi 1.5.0, `low` since), and CLIProxyAPI picks Devin's effort variant from that value only and drops the per-turn directives, so Devin Claude requests ignored pi's thinking level. Mid-conversation system messages and tool changes stay on.
+
 ## 0.5.0
 
 ### Minor Changes

@@ -1,5 +1,14 @@
 # @hank-warren/pi-auto-permissions
 
+## 0.23.0
+
+### Minor Changes
+
+- Block-first approval modes and an allow-by-default reviewer prompt.
+
+  - **Approval modes.** What happens when the guardian cannot approve a command (an `ask_user` verdict or a failed review) is now a per-session mode. `auto`, the new default, blocks the command with the guardian's reason so the agent keeps working and asks in its reply, falling back to a live prompt on the 3rd block in a row or the 20th in a session. `careful` prompts at once, as before. `afk` never prompts and tells the agent the user is away. Set the default with `approvalMode`, switch one session with `/auto-permissions auto|careful|afk`. Unattended sessions are always `afk`. **Behavior change:** an `ask_user` verdict no longer opens a prompt unless `approvalMode` is `careful`.
+  - **Reviewer prompt.** The built-in decision table is allow-by-default with a block list (destroying state the session did not create, shared history and default branches, merges and publishing, live systems, data leaving the trust boundary, credentials, unreviewed code, anything the user said not to do). A user message naming the operation and target, or a short "yes" to an assistant request that named them, clears a block. A custom `systemPromptFile` still replaces it.
+
 ## 0.22.1
 
 ### Patch Changes

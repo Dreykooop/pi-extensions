@@ -24,12 +24,16 @@ const config: CpaProviderConfig = {
 // and HOME is put back so the next test never inherits a deleted directory.
 async function withTempHome<T>(fn: (home: string) => Promise<T>): Promise<T> {
   const scratchHome = process.env.HOME!;
+  const scratchAgent = process.env.PI_CODING_AGENT_DIR;
   const home = await mkdtemp(join(scratchHome, "pi-cpa-catalog-"));
   process.env.HOME = home;
+    process.env.PI_CODING_AGENT_DIR = join(home, ".pi", "agent");
   try {
     return await fn(home);
   } finally {
     process.env.HOME = scratchHome;
+    if (scratchAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = scratchAgent;
     await rm(home, { recursive: true, force: true });
   }
 }

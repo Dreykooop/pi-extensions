@@ -6,12 +6,14 @@ import { runConfig } from "../src/commands.ts";
 
 test("config command saves global config and reloads pi", async () => {
   const scratchHome = process.env.HOME!;
+  const scratchAgent = process.env.PI_CODING_AGENT_DIR;
   const home = await mkdtemp(join(scratchHome, "pi-cpa-config-command-"));
   const notifications: string[] = [];
   let reloads = 0;
 
   try {
     process.env.HOME = home;
+    process.env.PI_CODING_AGENT_DIR = join(home, ".pi", "agent");
     await runConfig({
       cwd: home,
       hasUI: true,
@@ -30,12 +32,15 @@ test("config command saves global config and reloads pi", async () => {
     assert.match(notifications.at(-1) ?? "", /Reloading pi/);
   } finally {
     process.env.HOME = scratchHome;
+    if (scratchAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = scratchAgent;
     await rm(home, { recursive: true, force: true });
   }
 });
 
 test("config command keeps existing global values when input is empty", async () => {
   const scratchHome = process.env.HOME!;
+  const scratchAgent = process.env.PI_CODING_AGENT_DIR;
   const home = await mkdtemp(join(scratchHome, "pi-cpa-config-command-keep-"));
   const configDir = join(home, ".pi", "agent", "pi-cliproxyapi-provider");
   const configPath = join(configDir, "config.json");
@@ -43,6 +48,7 @@ test("config command keeps existing global values when input is empty", async ()
 
   try {
     process.env.HOME = home;
+    process.env.PI_CODING_AGENT_DIR = join(home, ".pi", "agent");
     await mkdir(configDir, { recursive: true });
     await writeFile(configPath, JSON.stringify(existing, null, 2));
 
@@ -64,12 +70,15 @@ test("config command keeps existing global values when input is empty", async ()
     assert.equal(reloads, 1);
   } finally {
     process.env.HOME = scratchHome;
+    if (scratchAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = scratchAgent;
     await rm(home, { recursive: true, force: true });
   }
 });
 
 test("config command redacts secret-like existing global config fields", async () => {
   const scratchHome = process.env.HOME!;
+  const scratchAgent = process.env.PI_CODING_AGENT_DIR;
   const home = await mkdtemp(join(scratchHome, "pi-cpa-config-command-redact-"));
   const configDir = join(home, ".pi", "agent", "pi-cliproxyapi-provider");
   const configPath = join(configDir, "config.json");
@@ -77,6 +86,7 @@ test("config command redacts secret-like existing global config fields", async (
 
   try {
     process.env.HOME = home;
+    process.env.PI_CODING_AGENT_DIR = join(home, ".pi", "agent");
     await mkdir(configDir, { recursive: true });
     await writeFile(configPath, JSON.stringify({
       providerName: "existing-provider",
@@ -102,6 +112,8 @@ test("config command redacts secret-like existing global config fields", async (
     assert.doesNotMatch(existingConfigMessage, /secret/);
   } finally {
     process.env.HOME = scratchHome;
+    if (scratchAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = scratchAgent;
     await rm(home, { recursive: true, force: true });
   }
 });

@@ -50,7 +50,9 @@ export class ProviderRuntime {
     }
     const mode = context.force ? "manual" : "background";
     const credential = context.credential;
-    const keyFn: () => Promise<string | undefined> = credential?.type === "api_key"
+    const keyFn: () => Promise<string | undefined> = this.options.config.apiKeyFile !== undefined
+      ? () => getDiscoveryApiKey(this.options.config.providerName, process.env, this.options.config.apiKeyFile)
+      : credential?.type === "api_key"
       ? async () => credential.key
       : () => getDiscoveryApiKey(this.options.config.providerName);
     // Pi calls this at startup and whenever the model selector opens. CPA's

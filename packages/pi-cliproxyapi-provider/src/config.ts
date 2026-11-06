@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { dirname, isAbsolute, join } from "node:path";
 import type {
   CpaProviderConfig,
   ProviderModelOverride,
@@ -27,7 +28,7 @@ export const DEFAULT_CONFIG: CpaProviderConfig = {
 };
 
 export function globalConfigPath(): string {
-  return join(homedir(), ".pi", "agent", "pi-cliproxyapi-provider", "config.json");
+  return join(getAgentDir(), "pi-cliproxyapi-provider", "config.json");
 }
 
 export function projectConfigPath(cwd: string): string {
@@ -35,7 +36,12 @@ export function projectConfigPath(cwd: string): string {
 }
 
 export function cacheDir(): string {
-  return join(homedir(), ".cache", "pi-cliproxyapi-provider");
+  const agentDir = getAgentDir();
+  // Preserve last-known-good snapshots for existing default Pi installations.
+  if (agentDir === join(homedir(), ".pi", "agent")) {
+    return join(homedir(), ".cache", "pi-cliproxyapi-provider");
+  }
+  return join(agentDir, "pi-cliproxyapi-provider", "cache");
 }
 
 export function providerCacheKey(config: Pick<CpaProviderConfig, "providerName" | "baseUrl">): string {
@@ -55,6 +61,9 @@ function normalizeMetadataFallbackProvider(value: string | null): string | null 
 }
 
 function normalizeConfig(config: CpaProviderConfig): CpaProviderConfig {
+  if (config.apiKeyFile !== undefined && !config.authRequired) {
+    throw new Error("apiKeyFile requires authRequired: true");
+  }
   return {
     ...config,
     authHeader: config.authRequired ? config.authHeader : false,
@@ -219,6 +228,10 @@ function validateConfigLayer(value: unknown, path: string): ConfigLayer {
     (typeof record.metadataFallbackProvider !== "string" || !record.metadataFallbackProvider.trim())
   ) {
     throw new Error(`metadataFallbackProvider must be a non-empty string or null in config file: ${path}`);
+  }
+
+  if (record.apiKeyFile !== undefined && (typeof record.apiKeyFile !== "string" || !isAbsolute(record.apiKeyFile))) {
+    throw new Error("apiKeyFile must be an absolute path");
   }
 
   const booleanFields = ["authRequired", "authHeader", "modelsDevEnabled"];

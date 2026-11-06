@@ -109,12 +109,16 @@ const config: CpaProviderConfig = {
 
 async function withTempHome<T>(fn: () => Promise<T>): Promise<T> {
   const scratchHome = process.env.HOME!;
+  const scratchAgent = process.env.PI_CODING_AGENT_DIR;
   const home = await mkdtemp(join(scratchHome, "pi-cpa-specs-"));
   process.env.HOME = home;
+    process.env.PI_CODING_AGENT_DIR = join(home, ".pi", "agent");
   try {
     return await fn();
   } finally {
     process.env.HOME = scratchHome;
+    if (scratchAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = scratchAgent;
     await rm(home, { recursive: true, force: true });
   }
 }

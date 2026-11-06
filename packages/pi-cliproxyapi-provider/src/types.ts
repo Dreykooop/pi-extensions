@@ -21,6 +21,8 @@ export type ProviderModelOverrideLayers = Record<string, ProviderModelOverrideLa
 export interface CpaProviderConfig {
   providerName: string;
   baseUrl: string;
+  /** Trusted global reference; never accepted from project configuration. */
+  apiKeyFile?: string;
   authRequired: boolean;
   authHeader: boolean;
   headers: Record<string, string>;

@@ -43,7 +43,7 @@ Run the interactive command:
 It writes global connection/auth config to:
 
 ```text
-~/.pi/agent/pi-cliproxyapi-provider/config.json
+<agent-dir>/pi-cliproxyapi-provider/config.json
 ```
 
 Environment variables override config:
@@ -175,7 +175,7 @@ When `/v1/models` reports a canonical owner such as `openai`, the package uses t
 Add global aliases to:
 
 ```text
-~/.pi/agent/pi-cliproxyapi-provider/config.json
+<agent-dir>/pi-cliproxyapi-provider/config.json
 ```
 
 Add project aliases manually to:
@@ -222,7 +222,7 @@ first-run seed:      pi's own built-in model catalog, read in-process, no file a
 Snapshots live under:
 
 ```text
-~/.cache/pi-cliproxyapi-provider/
+<agent-dir>/pi-cliproxyapi-provider/cache/
 ```
 
 Startup registers the provider immediately from the last-known-good local snapshots and never fetches anything itself. With no metadata snapshot on disk it seeds from pi's built-in catalog, so a cold start already has real costs, context windows and thinking levels for the Anthropic, OpenAI, Codex, xAI, Google and OpenRouter models CLIProxyAPI usually fronts. On a first run with no CPA snapshot, pi registers a placeholder until background discovery succeeds.
@@ -243,7 +243,7 @@ CLIProxyAPI is the only source of *availability*: the package discovers models f
 
 Two catalogs fill in what CPA does not publish — cost always, and names, modalities and thinking for models CPA's catalog leaves out or describes only with filler — in this order:
 
-1. **A cached models.dev snapshot** under `~/.cache/pi-cliproxyapi-provider/`, when one exists and carries source-provider identity. models.dev's *provider* catalog is used rather than its lab-level one, so provider-specific prices and context-pricing tiers are available. This is the freshness layer: a model listed on models.dev before pi's next release shows up here first.
+1. **A cached models.dev snapshot** under `<agent-dir>/pi-cliproxyapi-provider/cache/`, when one exists and carries source-provider identity. models.dev's *provider* catalog is used rather than its lab-level one, so provider-specific prices and context-pricing tiers are available. This is the freshness layer: a model listed on models.dev before pi's next release shows up here first.
 2. **Pi's built-in model catalog**, read through `@earendil-works/pi-ai`'s `providers/all` subpath, as the first-run seed — replacing the 4.7 MB `data/models-dev-fallback.json` file upstream ships. It is pure static data (no credential, no network, no file of ours), regenerated from models.dev on every pi release, so it can never be older than the pi you are running, and it already carries each model's finished `thinkingLevelMap` — which models.dev does not publish at all. Six providers are seeded: `anthropic`, `openai`, `openai-codex`, `xai`, `google`, `openrouter`. `openai-codex` entries are also registered under `openai/` when that key is free, so CLIProxyAPI's `owned_by: openai` matches the Codex-only ids. Any non-`cache` snapshot counts as stale, so the first model discovery still upgrades it to a live models.dev fetch.
 
 On a pi whose `@earendil-works/pi-ai` does not export `providers/all` — an older release, or a future one that renames it — the read fails soft: the seed is empty, one warning is logged, and every model renders with pi's bare defaults until that first models.dev fetch lands, exactly as it would with no seed at all. Nothing else changes, and upgrading pi closes the gap.
@@ -255,3 +255,42 @@ API routing follows from the same decision. The provider defaults to OpenAI Comp
 ## Attribution
 
 Forked from [`0xRichardH/pi-cliproxyapi-provider`](https://github.com/0xRichardH/pi-cliproxyapi-provider) (MIT, Copyright (c) 2026 Richard Hao). See [LICENSE](LICENSE).
+
+## Pi and Gentle Shell configuration (local fork)
+
+Global configuration follows the active `getAgentDir()` / `PI_CODING_AGENT_DIR`:
+`<agent-dir>/pi-cliproxyapi-provider/config.json`. The default Pi directory remains
+`~/.pi/agent`; Gentle Shell supplies its own agent directory. Each environment
+has an independent cache; non-default agent directories use
+`<agent-dir>/pi-cliproxyapi-provider/cache`.
+The default Pi agent retains `~/.cache/pi-cliproxyapi-provider` so existing
+last-known-good snapshots remain available offline; other agent directories
+use their own cache and never read the default Pi cache. Project metadata overrides remain under `.pi/` and cannot
+change connection settings or credentials.
+
+An optional **global-only** `apiKeyFile` accepts an absolute path to an existing
+private UTF-8 key file. It takes precedence over stored credentials, environment
+credentials, and model-refresh credentials for discovery and provider registration.
+`apiKeyFile` requires `authRequired: true`; conflicting configuration is rejected.
+Missing, unreadable, or empty files fail closed; no alternative credential is used.
+The key is read into memory, not saved into configuration or logged; no shell is
+invoked. Keep the file private (0600) and its parent directory private (0700).
+Without this setting, existing stored-login and `CLIPROXYAPI_API_KEY` behavior
+is unchanged. Restart/reload the extension after rotating a key file so request
+registration is rebuilt.
+
+```json
+{
+  "providerName": "cliproxyapi",
+  "baseUrl": "http://127.0.0.1:8317/v1",
+  "apiKeyFile": "/absolute/private/path/api-key"
+}
+```
+
+Install only this subpackage directory, not the repository root (which enables
+other extensions). Use one owner for the provider catalog: preserve a private
+backup before removing a duplicate static provider from `models.json`. Do not
+change other providers or defaults. Discovery refreshes when Pi starts or its
+model selector requests a refresh; `/cliproxyapi refresh models` refreshes manually.
+Image capability is declared metadata, not an inference test. This does not add
+native PDF attachments or synchronize OpenCode.

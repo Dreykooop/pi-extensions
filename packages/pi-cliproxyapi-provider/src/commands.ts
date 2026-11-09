@@ -1,3 +1,5 @@
+import { fetchQuota, quotaText } from "./usage.ts";
+import { getDiscoveryApiKey } from "./auth.ts";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DEFAULT_CONFIG, loadConfig, globalConfigPath, readConfigFile, writeConfigFile, type ConfigLayer } from "./config.ts";
 import type { ProviderCatalog, CatalogSnapshot, RefreshTarget, SourceRefreshResult } from "./catalog.ts";
@@ -143,6 +145,7 @@ function parseRefreshTarget(value: string | undefined): RefreshTarget | undefine
 
 const CLIPROXYAPI_HELP = [
   "CLIProxyAPI provider commands:",
+  "  /cliproxyapi quota             Show account quota snapshot (no upstream refresh)",
   "  /cliproxyapi status            Show provider and model-catalog status",
   "  /cliproxyapi refresh           Refresh CPA models and models.dev metadata",
   "  /cliproxyapi refresh models    Refresh CPA models only",
@@ -155,7 +158,7 @@ const CLIPROXYAPI_HELP = [
 ].join("\n");
 
 export function cliproxyapiArgumentCompletions(prefix: string): Array<{ value: string; label: string }> {
-  return ["config", "config connection", "status", "refresh", "refresh models", "refresh metadata", "aliases", "models", "help"]
+  return ["config", "config connection", "quota", "status", "refresh", "refresh models", "refresh metadata", "aliases", "models", "help"]
     .filter((item) => item.startsWith(prefix))
     .map((value) => ({ value, label: value }));
 }
@@ -171,6 +174,15 @@ export function registerCliproxyapiCommand(pi: ExtensionAPI, runtime?: ProviderR
       const [subcommand, option] = commandArgs ? commandArgs.split(/\s+/) : ["help"];
       if (subcommand === "help") {
         ctx.ui.notify(CLIPROXYAPI_HELP, "info");
+        return;
+      }
+      if (subcommand === "quota") {
+        try {
+          const config = loadConfig(ctx.cwd);
+          if (!config.quotaEnabled) { ctx.ui.notify("Quota integration is disabled. Enable quotaEnabled in global provider configuration.", "warning"); return; }
+          const key = await getDiscoveryApiKey(config.providerName, process.env, config.apiKeyFile);
+          ctx.ui.notify(quotaText(await fetchQuota(config, key, fetch, Date.now(), AbortSignal.timeout(10000))), "info");
+        } catch { ctx.ui.notify("Quota snapshot unavailable or stale. No upstream refresh was requested.", "warning"); }
         return;
       }
       if (subcommand === "config") {

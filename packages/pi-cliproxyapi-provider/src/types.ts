@@ -23,6 +23,7 @@ export interface CpaProviderConfig {
   baseUrl: string;
   /** Trusted global reference; never accepted from project configuration. */
   apiKeyFile?: string;
+  quotaEnabled?: boolean;
   authRequired: boolean;
   authHeader: boolean;
   headers: Record<string, string>;

@@ -1,3 +1,4 @@
+import { registerQuotaSource } from "./usage.ts";
 import { existsSync, readFileSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { DEFAULT_CONFIG, loadConfig, readConfigFile, globalConfigPath } from "./config.ts";
@@ -27,6 +28,7 @@ export default async function (pi: ExtensionAPI) {
     const cwd = process.cwd();
     config = loadConfig(cwd);
     const settings = loadProviderSettings(cwd);
+    registerQuotaSource(pi, config);
     const catalog = new ProviderCatalog({
       config,
       gpt56ContextWindow: settings.gpt56ContextWindow,

@@ -234,7 +234,7 @@ function validateConfigLayer(value: unknown, path: string): ConfigLayer {
     throw new Error("apiKeyFile must be an absolute path");
   }
 
-  const booleanFields = ["authRequired", "authHeader", "modelsDevEnabled"];
+  const booleanFields = ["authRequired", "authHeader", "modelsDevEnabled", "quotaEnabled"];
   for (const field of booleanFields) {
     if (record[field] !== undefined && typeof record[field] !== "boolean") {
       throw new Error(`${field} must be a boolean in config file: ${path}`);

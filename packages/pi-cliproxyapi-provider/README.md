@@ -294,3 +294,36 @@ change other providers or defaults. Discovery refreshes when Pi starts or its
 model selector requests a refresh; `/cliproxyapi refresh models` refreshes manually.
 Image capability is declared metadata, not an inference test. This does not add
 native PDF attachments or synchronize OpenCode.
+
+
+## Optional account quotas
+
+A separate, server-only component in `services/cpa-quota` supplies sanitized
+snapshots. Set `"quotaEnabled": true` in the **global** provider config after
+that endpoint is deployed; project configuration cannot enable it. Existing
+`apiKeyFile` or provider credentials authenticate reads. No administrative
+credential belongs in the client. Other providers, catalog discovery and model
+routing are unchanged; no Alt+U shortcut is overridden.
+
+Gentle Shell receives a `gentle-pi:usage-source/v1` registration at session start
+for the configured provider ID. Its existing Alt+U / `/gentle:usage` panel shows
+account-labeled limits. Plain Pi can use `/cliproxyapi quota`. Both only read
+`/v0/resource/plugins/account-quota-linux-amd64/snapshot` on the configured CPA
+origin (same proxy path prefix); redirects are refused. Remote connections require
+HTTPS. Requests have a ten-second deadline and never trigger upstream refresh.
+
+Percentages mean **used**, not remaining. Missing reset times stay unknown;
+unknown durations are represented by zero only in Gentle's duration field, never
+as an assumed five-hour quota. Snapshots/accounts older than ten minutes are not
+presented as current. Unavailable accounts are named in the plan/status message;
+valid accounts remain visible. A wholly unavailable snapshot reports an error
+rather than zero usage. Only prefix labels and opaque account IDs are shown.
+Prefixes are not stable credential identities and do not guarantee which account
+the router will choose for an unprefixed model. The sidebar may aggregate/select
+rows according to Gentle's own rendering rules; the panel/command is the account
+breakdown of record. The feature requires a Gentle version supporting the usage
+source event; plain Pi does not provide that panel by itself.
+
+Disable `quotaEnabled` and reload to remove integration on the next session.
+This does not install `pi-bridge`, replace Control Account, add inference, or
+change subscription allowances. See the server README for deployment/rollback.

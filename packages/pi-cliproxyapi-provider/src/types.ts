@@ -24,6 +24,7 @@ export interface CpaProviderConfig {
   /** Trusted global reference; never accepted from project configuration. */
   apiKeyFile?: string;
   quotaEnabled?: boolean;
+  quotaHiddenAccounts?: string[];
   authRequired: boolean;
   authHeader: boolean;
   headers: Record<string, string>;

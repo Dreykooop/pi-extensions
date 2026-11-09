@@ -234,6 +234,10 @@ function validateConfigLayer(value: unknown, path: string): ConfigLayer {
     throw new Error("apiKeyFile must be an absolute path");
   }
 
+  if (record.quotaHiddenAccounts !== undefined && (!Array.isArray(record.quotaHiddenAccounts) ||
+      !record.quotaHiddenAccounts.every(id => typeof id === "string" && /^[a-f0-9]{24}$/.test(id)))) {
+    throw new Error("quotaHiddenAccounts must contain opaque account IDs");
+  }
   const booleanFields = ["authRequired", "authHeader", "modelsDevEnabled", "quotaEnabled"];
   for (const field of booleanFields) {
     if (record[field] !== undefined && typeof record[field] !== "boolean") {

@@ -1,4 +1,4 @@
-import { fetchQuota, quotaText } from "./usage.ts";
+import { fetchQuota, quotaText, emitQuotaSource } from "./usage.ts";
 import { getDiscoveryApiKey } from "./auth.ts";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DEFAULT_CONFIG, loadConfig, globalConfigPath, readConfigFile, writeConfigFile, type ConfigLayer } from "./config.ts";
@@ -145,6 +145,7 @@ function parseRefreshTarget(value: string | undefined): RefreshTarget | undefine
 
 const CLIPROXYAPI_HELP = [
   "CLIProxyAPI provider commands:",
+  "  /cliproxyapi quota accounts    Choose which accounts appear in quota views",
   "  /cliproxyapi quota             Show account quota snapshot (no upstream refresh)",
   "  /cliproxyapi status            Show provider and model-catalog status",
   "  /cliproxyapi refresh           Refresh CPA models and models.dev metadata",
@@ -158,7 +159,7 @@ const CLIPROXYAPI_HELP = [
 ].join("\n");
 
 export function cliproxyapiArgumentCompletions(prefix: string): Array<{ value: string; label: string }> {
-  return ["config", "config connection", "quota", "status", "refresh", "refresh models", "refresh metadata", "aliases", "models", "help"]
+  return ["config", "config connection", "quota", "quota accounts", "status", "refresh", "refresh models", "refresh metadata", "aliases", "models", "help"]
     .filter((item) => item.startsWith(prefix))
     .map((value) => ({ value, label: value }));
 }
@@ -181,6 +182,26 @@ export function registerCliproxyapiCommand(pi: ExtensionAPI, runtime?: ProviderR
           const config = loadConfig(ctx.cwd);
           if (!config.quotaEnabled) { ctx.ui.notify("Quota integration is disabled. Enable quotaEnabled in global provider configuration.", "warning"); return; }
           const key = await getDiscoveryApiKey(config.providerName, process.env, config.apiKeyFile);
+          if (option === "accounts") {
+            if (!ctx.hasUI) { ctx.ui.notify("Account selection requires interactive mode.", "warning"); return; }
+            const all = await fetchQuota({ ...config, quotaHiddenAccounts: [] }, key, fetch, Date.now(), AbortSignal.timeout(10000));
+            const hidden = new Set(config.quotaHiddenAccounts ?? []);
+            for (;;) {
+              const options = all.accounts.map(a => `${hidden.has(a.id) ? "[ ]" : "[x]"} ${a.name} (${a.id.slice(0, 8)})`);
+              const selected = await ctx.ui.select("Quota accounts · toggle visibility; Done saves", [...options, "Done", "Cancel"]);
+              if (selected === undefined || selected === "Cancel") return;
+              if (selected === "Done") {
+                const path = globalConfigPath();
+                writeConfigFile(path, { ...readConfigFile(path), quotaHiddenAccounts: [...hidden] });
+                emitQuotaSource(pi, { ...config, quotaHiddenAccounts: [...hidden] });
+                ctx.ui.notify("Quota account visibility saved. Reopen Alt+U or press r; model routing is unchanged.", "info");
+                return;
+              }
+              const account = all.accounts[options.indexOf(selected)];
+              if (account) { if (hidden.has(account.id)) hidden.delete(account.id); else hidden.add(account.id); }
+            }
+          }
+          if (option) { ctx.ui.notify("Usage: /cliproxyapi quota [accounts]", "warning"); return; }
           ctx.ui.notify(quotaText(await fetchQuota(config, key, fetch, Date.now(), AbortSignal.timeout(10000))), "info");
         } catch { ctx.ui.notify("Quota snapshot unavailable or stale. No upstream refresh was requested.", "warning"); }
         return;

@@ -1,27 +1,32 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { loadConfig } from "./config.ts";
 import { getDiscoveryApiKey } from './auth.ts';
 import type { CpaProviderConfig } from './types.ts';
 
 interface Window { label: string; usedPercent: number; windowSeconds: number; resetAt: number | null }
 interface Limit { name: string; windows: Window[]; limitReached: boolean }
-interface Usage { provider: string; plan?: string; fetchedAt: number; limits: Limit[] }
+interface Usage { accounts: Array<{id: string; name: string}>; provider: string; plan?: string; fetchedAt: number; limits: Limit[] }
 const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 const label = (x: unknown): string => typeof x === 'string'
   ? x.replace(/[\x00-\x1f\x7f-\x9f]/g, '').slice(0, 100) : '';
 
-export function quotaUsage(raw: unknown, provider: string, now: number): Usage {
+export function quotaUsage(raw: unknown, provider: string, now: number, hidden: string[] = []): Usage {
   const value = raw as any;
   if (value?.schema !== 'cpa.quota/v1' || !finite(value.generatedAt) || !Array.isArray(value.accounts)) {
     throw new Error('Invalid quota snapshot');
   }
   if (now - value.generatedAt > 600000 || value.generatedAt > now + 60000) throw new Error('Quota snapshot stale');
   const limits: Limit[] = [];
+  const accounts: Usage["accounts"] = [];
   const unavailable: string[] = [];
   const observed: number[] = [];
   for (const account of value.accounts) {
     if (!account || !Array.isArray(account.limits) || typeof account.id !== 'string') throw new Error('Invalid quota account');
+    const accountName = label(account.prefix) || account.id.slice(0, 8);
+    accounts.push({ id: account.id, name: accountName });
+    if (hidden.includes(account.id)) continue;
     if (account.stale || account.error || !finite(account.observedAt) || now - account.observedAt > 600000 || account.observedAt > now + 60000) {
-      unavailable.push(label(account.prefix) || label(account.provider) + '-' + account.id.slice(0, 8));
+      unavailable.push(accountName);
       continue;
     }
     observed.push(account.observedAt);
@@ -35,13 +40,13 @@ export function quotaUsage(raw: unknown, provider: string, now: number): Usage {
           // Gentle represents unknown duration with zero; never assume 5h/7d.
           windowSeconds: w.windowSeconds ?? 0, resetAt: w.resetAt };
       });
-      limits.push({ name: `${label(account.provider)} · ${label(account.prefix) || account.id.slice(0, 8)} · ${label(limit.name)}`,
+      limits.push({ name: `${accountName} · ${label(limit.name)}`,
         windows, limitReached: windows.some(w => w.usedPercent >= 100) });
     }
   }
-  if (!limits.length) throw new Error('No quota windows available');
-  return { provider, fetchedAt: Math.min(...observed), limits,
-    plan: unavailable.length ? `Unavailable/stale: ${unavailable.join(", ")}` : undefined };
+  if (!limits.length && accounts.some(a => !hidden.includes(a.id))) throw new Error('No quota windows available');
+  return { provider, accounts, fetchedAt: observed.length ? Math.min(...observed) : value.generatedAt, limits,
+    plan: accounts.length && accounts.every(a => hidden.includes(a.id)) ? "All quota accounts hidden" : unavailable.length ? `Unavailable/stale: ${unavailable.join(", ")}` : undefined };
 }
 
 export async function fetchQuota(config: CpaProviderConfig, key: string | undefined, fetchFn: typeof fetch,
@@ -58,7 +63,7 @@ export async function fetchQuota(config: CpaProviderConfig, key: string | undefi
   if (!response.ok) throw new Error('Quota snapshot request failed');
   const text = await response.text();
   if (text.length > 1048576) throw new Error('Quota snapshot too large');
-  return quotaUsage(JSON.parse(text), config.providerName, now);
+  return quotaUsage(JSON.parse(text), config.providerName, now, config.quotaHiddenAccounts);
 }
 
 export function quotaText(usage: Usage): string {
@@ -67,14 +72,18 @@ export function quotaText(usage: Usage): string {
       ? 'reset unknown' : 'resets ' + new Date(w.resetAt).toISOString()}`))].join('\n');
 }
 
+export function emitQuotaSource(pi: ExtensionAPI, config: CpaProviderConfig): void {
+  pi.events.emit("gentle-pi:usage-source/v1", {
+    schema: "gentle-pi.usage-source/v1", provider: config.providerName,
+    fetch: async (_key: string | undefined, fetchFn: typeof fetch, now: number) => {
+      const latest = loadConfig(process.cwd());
+      return fetchQuota({ ...config, quotaHiddenAccounts: latest.quotaHiddenAccounts },
+        await getDiscoveryApiKey(config.providerName, process.env, config.apiKeyFile), fetchFn, now, AbortSignal.timeout(10000));
+    },
+  });
+}
+
 export function registerQuotaSource(pi: ExtensionAPI, config: CpaProviderConfig): void {
   if (!config.quotaEnabled) return;
-  pi.on('session_start', () => {
-    pi.events.emit('gentle-pi:usage-source/v1', {
-      schema: 'gentle-pi.usage-source/v1', provider: config.providerName,
-      pendingNote: 'quota snapshot pending · r to fetch',
-      fetch: async (_apiKey: string | undefined, fetchFn: typeof fetch, now: number) => fetchQuota(config,
-        await getDiscoveryApiKey(config.providerName, process.env, config.apiKeyFile), fetchFn, now, AbortSignal.timeout(10000)),
-    });
-  });
+  pi.on('session_start', () => emitQuotaSource(pi, config));
 }

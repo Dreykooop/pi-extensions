@@ -327,3 +327,65 @@ source event; plain Pi does not provide that panel by itself.
 Disable `quotaEnabled` and reload to remove integration on the next session.
 This does not install `pi-bridge`, replace Control Account, add inference, or
 change subscription allowances. See the server README for deployment/rollback.
+
+
+### Account visibility in quota views
+
+Quota rows show the configured account prefix/label and the quota group, without
+a separate provider column. Accounts without a label use their opaque ID.
+Run `/cliproxyapi quota accounts` in an interactive session to toggle accounts:
+`[x]` means visible and `[ ]` hidden. **Done** saves; **Cancel** or Esc discards
+changes. Reopen Alt+U or press `r` afterwards. The same filter applies to
+`/cliproxyapi quota`; hiding every account shows an explicit all-hidden status.
+The choice is local to the active agent directory, stored as global
+`quotaHiddenAccounts` (opaque IDs), and cannot be changed by project settings.
+New accounts are visible by default. Renaming a prefix does not change a filter
+while its opaque account identity stays stable. Hidden accounts remain available
+for model routing and are still collected by the server; this is a display filter,
+not an authorization boundary or a way to disable upstream quota requests.
+
+
+### Updating an existing fork installation (Linux or Windows client)
+
+This fork's adaptation is on `feat/cpa-account-quotas` in
+`https://github.com/Dreykooop/pi-extensions`, not necessarily on `main` or npm.
+Use a verified commit from that branch for a reproducible installation. The
+package retains its upstream name/version; those alone do not identify this fork.
+
+1. Back up each active agent's provider config and settings privately. Inspect
+   the checkout for uncommitted changes before fetching/switching; never force,
+   reset, clean, or discard another user's work. Use a separate checkout when
+   needed. Fetch only the required fork branch and verify the selected commit.
+2. Reuse the existing local subpackage installation when it points at this
+   checkout. If using a new checkout, update only its local package reference in
+   each agent. Install `packages/pi-cliproxyapi-provider`, **not the repository
+   root**. Keep other package declarations, providers and defaults unchanged.
+   Prepare the checkout's locked development dependencies with `npm ci
+   --ignore-scripts --no-audit --no-fund` if tests/local imports need them; do not
+   upgrade the applications or replace their runtimes.
+3. Keep the client's existing HTTPS CPA `baseUrl` and private `apiKeyFile`.
+   Detect each agent directory; Gentle can choose a different installation home.
+   Set only `quotaEnabled: true` to enable the optional quota source. On Windows,
+   JSON paths require escaping (for example `"C:\\Users\\USER\\.config\\cliproxyapi-client\\api-key"`).
+4. Reuse the remote CPA server. A client laptop does **not** need Docker, Go,
+   a local CPA server, the quota plugin, or a collector timer. The Linux server
+   component must already be deployed; see `services/cpa-quota/README.md` at the
+   repository root for server-only setup. Do not deploy it again for every client.
+5. Verify authenticated GET access to both `/v1/models` and
+   `/v0/resource/plugins/account-quota-linux-amd64/snapshot` using the existing
+   client key, without displaying it. Quota access must be explicitly authorized
+   by that server's allowlist; an arbitrary inference key is not automatically
+   authorized. Preserve any reverse-proxy path prefix. Remote reachability has
+   to be tested separately; local success is not proof of public routing.
+   Stop on TLS, redirect, 401, 404, or stale/unavailable errors rather than exposing
+   an admin key or widening network access automatically.
+6. Run isolated checks with each installed runtime. Gentle's Alt+U requires a
+   version with the `gentle-pi:usage-source/v1` contract. Pi without Gentle uses
+   `/cliproxyapi quota`. Do not assume older Gentle/Pi versions implement the
+   event, and do not update them without authorization. No inference is needed.
+7. Reload/restart clients, run `/cliproxyapi quota`, choose visible accounts with
+   `/cliproxyapi quota accounts`, and open Alt+U / press `r` in Gentle. Preferences
+   are local to each agent; an empty hidden-ID list shows all accounts.
+
+Never transfer the server's management credential, OAuth account files or raw
+quota responses to clients or Git. Git carries code and documentation only.

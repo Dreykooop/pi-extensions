@@ -85,7 +85,7 @@ func handle(method string, raw []byte) any {
  switch method {
  case "plugin.register", "plugin.reconfigure":
   return map[string]any{"schema_version":6,"metadata":map[string]any{
-   "Name":"account-quota","Version":"0.1.0","Description":"Authenticated read-only quota snapshot"},
+   "Name":"account-quota","Version":"0.1.0","Author":"Dreykooop","GitHubRepository":"https://github.com/Dreykooop/pi-extensions","Description":"Authenticated read-only quota snapshot"},
    "capabilities":map[string]any{"management_api":true}}
  case "management.register":
   return map[string]any{"resources":[]any{map[string]any{"Path":"/snapshot","Menu":"","Description":"Quota snapshot"}},"routes":[]any{}}

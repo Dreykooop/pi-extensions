@@ -112,7 +112,7 @@ def collect(request, previous, now, salt=b"fixture-only"):
                 models = request('/auth-files/models?name=' + urllib.parse.quote(account.get('name', ''), safe='')).get('models', [])
                 ids = [m.get('id', '') for m in models if isinstance(m, dict)]
                 candidates = {s.split('/')[0] for s in ids if '/' in s}
-                if len(candidates) == 1 and ids and all('/' in s for s in ids): prefix = candidates.pop()
+                if len(candidates) == 1: prefix = candidates.pop()
             entry['prefix'] = clean(prefix or '')
             auth_index = account.get('auth_index') or account.get('authIndex')
             if not auth_index: raise ValueError('Missing account index')

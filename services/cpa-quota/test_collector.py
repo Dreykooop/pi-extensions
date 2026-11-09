@@ -29,7 +29,7 @@ class QuotaTests(unittest.TestCase):
                      'provider': 'codex', 'email': 'private@email', 'id_token': {'chatgpt_account_id': 'secret'}}]
         def request(path, data=None):
             if path == '/auth-files': return {'files': accounts}
-            if path.startswith('/auth-files/models'): return {'models': [{'id': 'main/gpt-test'}]}
+            if path.startswith('/auth-files/models'): return {'models': [{'id': 'main/gpt-test'}, {'id': 'gpt-test'}]}
             return {'status_code': 200, 'body': json.dumps({'rate_limit': {'primary_window': {
                 'used_percent': 40, 'limit_window_seconds': 18000}}})}
         first = collector.collect(request, {}, 1000000)
